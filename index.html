@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>App de Lectura de QR con Login</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f4f4f9;
+        }
+        .container {
+            text-align: center;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        input {
+            margin: 10px 0;
+            padding: 10px;
+            width: 100%;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        button {
+            padding: 10px 15px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:disabled {
+            background-color: #ccc;
+        }
+        video {
+            display: none;
+            width: 100%;
+            margin-top: 20px;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div id="login-section">
+        <h2>Iniciar Sesión</h2>
+        <input type="text" id="username" placeholder="Usuario" required>
+        <input type="password" id="password" placeholder="Contraseña" required>
+        <button id="login-btn">Iniciar Sesión</button>
+    </div>
+    <div id="qr-section" class="hidden">
+        <h2>Escanear QR</h2>
+        <video id="qr-video"></video>
+        <p id="qr-result"></p>
+        <button id="logout-btn">Cerrar Sesión</button>
+    </div>
+</div>
+
+<script>
+    const loginSection = document.getElementById('login-section');
+    const qrSection = document.getElementById('qr-section');
+    const loginBtn = document.getElementById('login-btn');
+    const logoutBtn = document.getElementById('logout-btn');
+    const usernameInput = document.getElementById('username');
+    const passwordInput = document.getElementById('password');
+    const qrVideo = document.getElementById('qr-video');
+    const qrResult = document.getElementById('qr-result');
+
+    let isLoggedIn = false;
+
+    // Simulación de credenciales (en una aplicación real, esto debe ser seguro y en el backend)
+    const validCredentials = {
+        username: 'usuario',
+        password: 'contraseña'
+    };
+
+    loginBtn.addEventListener('click', () => {
+        const username = usernameInput.value.trim();
+        const password = passwordInput.value.trim();
+
+        if (username === validCredentials.username && password === validCredentials.password) {
+            isLoggedIn = true;
+            loginSection.classList.add('hidden');
+            qrSection.classList.remove('hidden');
+            startQRScanner();
+        } else {
+            alert('Credenciales incorrectas. Inténtalo de nuevo.');
+        }
+    });
+
+    logoutBtn.addEventListener('click', () => {
+        isLoggedIn = false;
+        qrSection.classList.add('hidden');
+        loginSection.classList.remove('hidden');
+        stopQRScanner();
+        qrResult.textContent = '';
+    });
+
+    function startQRScanner() {
+        const constraints = { video: { facingMode: "environment" } };
+        navigator.mediaDevices.getUserMedia(constraints)
+            .then(stream => {
+                qrVideo.srcObject = stream;
+                qrVideo.setAttribute("playsinline", true);
+                qrVideo.play();
+                requestAnimationFrame(tick);
+            })
+            .catch(err => {
+                console.error("Error al acceder a la cámara:", err);
+                alert('No se pudo acceder a la cámara. Asegúrate de que esté disponible.');
+            });
+    }
+
+    function stopQRScanner() {
+        const stream = qrVideo.srcObject;
+        if (stream) {
+            const tracks = stream.getTracks();
+            tracks.forEach(track => track.stop());
+            qrVideo.srcObject = null;
+        }
+    }
+
+    function tick() {
+        if (qrVideo.readyState === qrVideo.HAVE_ENOUGH_DATA) {
+            const canvas = document.createElement('canvas');
+            canvas.width = qrVideo.videoWidth;
+            canvas.height = qrVideo.videoHeight;
+            const context = canvas.getContext('2d');
+            context.drawImage(qrVideo, 0, 0, canvas.width, canvas.height);
+            const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+
+            try {
+                const code = jsQR(imageData.data, imageData.width, imageData.height);
+                if (code) {
+                    qrResult.textContent = `Contenido del QR: ${code.data}`;
+                    stopQRScanner();
+                }
+            } catch (err) {
+                console.error("Error al decodificar el QR:", err);
+            }
+        }
+        if (isLoggedIn) {
+            requestAnimationFrame(tick);
+        }
+    }
+</script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr/dist/jsQR.js"></script>
+</body>
+</html>
